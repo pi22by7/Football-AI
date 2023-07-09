@@ -8,11 +8,24 @@ from QLearning import QLearningPlayer
 # Initialize Pygame
 pygame.init()
 
+DEBUG = True
+
+
+def log(s):
+    f = open("stats.log", "a")
+    if DEBUG:
+        f.write(s + "\n")
+        print(s)
+        f.close()
+
+
 # Set up the screen
 WIDTH = 800
 HEIGHT = 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Abstract Football Field")
+
+wants_ai = True
 
 # Define colors
 WHITE = (255, 255, 255)
@@ -41,16 +54,16 @@ class Player:
         self.x = max(0, min(new_x, WIDTH - self.size))
         self.y = max(0, min(new_y, HEIGHT - self.size))
 
-        # Print the direction the player is moving
+        # log the direction the player is moving
         if dx < 0:
-            print("Moving left")
+            log("Moving left")
         elif dx > 0:
-            print("Moving right")
+            log("Moving right")
 
         if dy < 0:
-            print("Moving up")
+            log("Moving up")
         elif dy > 0:
-            print("Moving down")
+            log("Moving down")
 
     def draw(self):
         pygame.draw.rect(screen, BLUE, (self.x, self.y, self.size, self.size))
@@ -170,6 +183,7 @@ class Game:
         self.goalpost.draw()
         self.draw_score()
         pygame.display.update()
+        pygame.display.flip()  # Add this line to update the display
 
     def draw_score(self):
         font = pygame.font.SysFont("Segoe UI", 36)
@@ -182,8 +196,8 @@ class Game:
         q_table_file = 'q_values.pkl'
         if os.path.exists(q_table_file):
             # Load the pre-trained Q-table
-            player.load_q_values(q_table_file)
-            print("Loaded Q-values")
+            # player.load_q_values(q_table_file)
+            log("Loaded Q-values")
         else:
             # Training loop
             num_episodes = 1
@@ -221,10 +235,11 @@ class Game:
                     player.update_q_value(state, action, next_state, reward)
 
             player.save_q_values(q_table_file)
-            print("Saved Q-values")
+            log("Saved Q-values")
 
     def run(self):
-        self.train()
+        if wants_ai:
+            self.train()
 
         while True:
             self.handle_events()
@@ -240,4 +255,4 @@ game = Game()
 # Run the game
 game.run()
 
-print(game.score)
+log(game.score)
