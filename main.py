@@ -1,20 +1,12 @@
-import pygame
-import sys
 import math
+import os
+import sys
+import pygame
 
 from QLearning import QLearningPlayer
 
-DEBUG = True
-
-
-def log(s):
-    if DEBUG:
-        print(s)
-
-
 # Initialize Pygame
 pygame.init()
-log("init")
 
 # Set up the screen
 WIDTH = 800
@@ -37,25 +29,28 @@ class Player:
         self.x = x
         self.y = y
         self.size = size
-        self.speed_x = 1
-        self.speed_y = 1
 
     def move(self, keys):
-        self.x = max(0, min(self.x + (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * 5, WIDTH - self.size))
-        self.y = max(0, min(self.y + (keys[pygame.K_DOWN] - keys[pygame.K_UP]) * 5, HEIGHT - self.size))
-        print("left" if keys[pygame.K_LEFT] else "right")
-        # if keys[pygame.K_LEFT] and self.x > 0:
-        #     print("left")
-        #     self.x -= 5
-        # if keys[pygame.K_RIGHT] and self.x < WIDTH - self.size:
-        #     print("right")
-        #     self.x += 5
-        # if keys[pygame.K_UP] and self.y > 0:
-        #     print("up")
-        #     self.y -= 5
-        # if keys[pygame.K_DOWN] and self.y < HEIGHT - self.size:
-        #     print("down")
-        #     self.y += 5
+        speed = 5
+        dx = (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * speed
+        dy = (keys[pygame.K_DOWN] - keys[pygame.K_UP]) * speed
+
+        # Update the player's position within the window boundaries
+        new_x = self.x + dx
+        new_y = self.y + dy
+        self.x = max(0, min(new_x, WIDTH - self.size))
+        self.y = max(0, min(new_y, HEIGHT - self.size))
+
+        # Print the direction the player is moving
+        if dx < 0:
+            print("Moving left")
+        elif dx > 0:
+            print("Moving right")
+
+        if dy < 0:
+            print("Moving up")
+        elif dy > 0:
+            print("Moving down")
 
     def draw(self):
         pygame.draw.rect(screen, BLUE, (self.x, self.y, self.size, self.size))
@@ -82,33 +77,17 @@ class Ball:
         self.speed_y *= 0.98
 
     def check_collision(self, player):
-        # log("collided")
-        ball_rect = pygame.Rect(
-            self.x - self.radius,
-            self.y - self.radius,
-            self.radius * 2,
-            self.radius * 2
-        )
-        player_rect = pygame.Rect(
-            player.x,
-            player.y,
-            player.size,
-            player.size
-        )
-
-        if ball_rect.colliderect(player_rect):
-            dx = self.x - player.x
-            dy = self.y - player.y
+        dx = self.x - player.x
+        dy = self.y - player.y
+        distance = math.hypot(dx, dy)
+        if distance <= self.radius + player.size:
             angle = math.atan2(dy, dx)
             kick_strength = 5
             self.speed_x = kick_strength * math.cos(angle)
             self.speed_y = kick_strength * math.sin(angle)
-
-            overlap_x = (self.radius + player.size) * math.cos(angle)
-            overlap_y = (self.radius + player.size) * math.sin(angle)
-            self.x = player.x + (player.size // 2) + overlap_x
-            self.y = player.y + (player.size // 2) + overlap_y
-
+            overlap = self.radius + player.size - distance
+            self.x += overlap * math.cos(angle)
+            self.y += overlap * math.sin(angle)
             self.moving = True
 
     def check_boundaries(self):
@@ -161,16 +140,8 @@ class Game:
                 pygame.quit()
                 sys.exit()
 
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_r:
-                    self.reset_game()
-
-    def update_game(self):
-        # event = pygame.event.get()
-        # keys = pygame.key.get_pressed()
-        # print(keys)
+    def update_game(self, keys):
         self.player.move(keys)
-
         self.ball.check_collision(self.player)
         self.ball.move()
         self.check_goal()
@@ -205,60 +176,68 @@ class Game:
         score_text = font.render(f"Score: {self.score}", True, BLUE)
         screen.blit(score_text, (20, 20))
 
+    def train(self):
+        player = QLearningPlayer(actions=['up', 'down', 'left', 'right'])
+
+        q_table_file = 'q_values.pkl'
+        if os.path.exists(q_table_file):
+            # Load the pre-trained Q-table
+            player.load_q_values(q_table_file)
+            print("Loaded Q-values")
+        else:
+            # Training loop
+            num_episodes = 1
+            for episode in range(num_episodes):
+                self.reset_game()
+
+                while True:
+                    state = [self.player.x, self.player.y, self.ball.x, self.ball.y, self.ball.speed_x,
+                             self.ball.speed_y]
+
+                    action = player.get_action(state)
+
+                    keys = {pygame.K_UP: False, pygame.K_DOWN: False, pygame.K_LEFT: False, pygame.K_RIGHT: False}
+                    if action == 'up':
+                        keys[pygame.K_UP] = True
+                    elif action == 'down':
+                        keys[pygame.K_DOWN] = True
+                    elif action == 'left':
+                        keys[pygame.K_LEFT] = True
+                    elif action == 'right':
+                        keys[pygame.K_RIGHT] = True
+
+                    self.update_game(keys)
+
+                    next_state = [self.player.x, self.player.y, self.ball.x, self.ball.y, self.ball.speed_x,
+                                  self.ball.speed_y]
+                    reward = 0
+
+                    if self.score >= 1:
+                        break
+
+                    if self.check_goal():
+                        reward = 1
+
+                    player.update_q_value(state, action, next_state, reward)
+
+            player.save_q_values(q_table_file)
+            print("Saved Q-values")
+
     def run(self):
+        self.train()
+
         while True:
             self.handle_events()
-            self.update_game()
+            keys = pygame.key.get_pressed()
+            self.update_game(keys)
             self.draw_game()
-            clock.tick(75)
+            clock.tick(60)
 
 
 # Init the game
 game = Game()
-player = QLearningPlayer(actions=['up', 'down', 'left', 'right'])
-# Training loop
-num_episodes = 1
-for episode in range(num_episodes):
-    # Reset the game state for each episode
-    game.reset_game()
-
-    while True:
-        # Get the current game state
-        state = [game.player.x, game.player.y, game.ball.x, game.ball.y, game.ball.speed_x, game.ball.speed_y]
-
-        # Choose an action based on the current state
-        action = player.get_action(state)
-
-        # Perform the chosen action
-        if action == 'up':
-            keys = {pygame.K_UP: True, pygame.K_DOWN: False, pygame.K_LEFT: False, pygame.K_RIGHT: False}
-        elif action == 'down':
-            keys = {pygame.K_UP: False, pygame.K_DOWN: True, pygame.K_LEFT: False, pygame.K_RIGHT: False}
-        elif action == 'left':
-            keys = {pygame.K_UP: False, pygame.K_DOWN: False, pygame.K_LEFT: True, pygame.K_RIGHT: False}
-        elif action == 'right':
-            keys = {pygame.K_UP: False, pygame.K_DOWN: False, pygame.K_LEFT: False, pygame.K_RIGHT: True}
-        else:
-            keys = {pygame.K_UP: False, pygame.K_DOWN: False, pygame.K_LEFT: False, pygame.K_RIGHT: False}
-
-        # game.player.move(keys)
-        # Update the game state
-        game.update_game()
-
-        # Get the new game state and reward
-        next_state = [game.player.x, game.player.y, game.ball.x, game.ball.y, game.ball.speed_x, game.ball.speed_y]
-        reward = 0
-        if game.score >= 1:
-            # The player has scored at least 3 goals, end the episode
-            break
-
-        if game.check_goal():
-            # The ball has touched the goalpost, give a positive reward
-            reward = 1
-
-        # Update the Q-value for the current state-action pair
-        player.update_q_value(state, action, next_state, reward)
 
 # Run the game
 game.run()
+
 print(game.score)

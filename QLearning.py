@@ -1,3 +1,4 @@
+import pickle
 import random
 
 
@@ -30,7 +31,17 @@ class QLearningPlayer:
         next_state_key = self.get_state_key(next_state)
         q_values = self.q_table.get(state_key, {a: 0 for a in self.actions})
         max_next_q_value = max(self.q_table.get(next_state_key, {a: 0 for a in self.actions}).values())
-        q_values[action] = (1 - self.learning_rate) * q_values[action] + self.learning_rate * (reward + self.discount_factor * max_next_q_value)
+        q_values[action] = (1 - self.learning_rate) * q_values[action] + self.learning_rate * \
+                           (reward + self.discount_factor * max_next_q_value)
         self.q_table[state_key] = q_values
+
+    def save_q_values(self, filename):
+        with open(filename, 'wb') as f:
+            pickle.dump(self.q_table, f)
+
+    def load_q_values(self, filename):
+        with open(filename, 'rb') as f:
+            q_values = pickle.load(f)
+        return q_values
 
 # Other utility functions or classes for training, saving/loading Q-table, etc.
