@@ -41,37 +41,21 @@ class Player:
         self.speed_y = 1
 
     def move(self, keys):
-        if (pygame.K_LEFT is True in keys) and self.x > 0:
-            print("left")
-            self.x -= 5
-        if keys[pygame.K_RIGHT] and self.x < WIDTH - self.size:
-            print("right")
-            self.x += 5
-        if keys[pygame.K_UP] and self.y > 0:
-            print("up")
-            self.y -= 5
-        if keys[pygame.K_DOWN] and self.y < HEIGHT - self.size:
-            print("down")
-            self.y += 5
-        # self.x = max(0, min(self.x + (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * 5, WIDTH - self.size))
-        # self.y = max(0, min(self.y + (keys[pygame.K_DOWN] - keys[pygame.K_UP]) * 5, HEIGHT - self.size))
-
-    # def move(self, keys):
-    #     speed = 5
-    #     move_x = 0
-    #     move_y = 0
-    #
-    #     if pygame.K_LEFT in keys:
-    #         move_x -= speed
-    #     if pygame.K_RIGHT in keys:
-    #         move_x += speed
-    #     if pygame.K_UP in keys:
-    #         move_y -= speed
-    #     if pygame.K_DOWN in keys:
-    #         move_y += speed
-
-    #     self.x = max(0, min(self.x + move_x, WIDTH - self.size))
-    #     self.y = max(0, min(self.y + move_y, HEIGHT - self.size))
+        self.x = max(0, min(self.x + (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * 5, WIDTH - self.size))
+        self.y = max(0, min(self.y + (keys[pygame.K_DOWN] - keys[pygame.K_UP]) * 5, HEIGHT - self.size))
+        print("left" if keys[pygame.K_LEFT] else "right")
+        # if keys[pygame.K_LEFT] and self.x > 0:
+        #     print("left")
+        #     self.x -= 5
+        # if keys[pygame.K_RIGHT] and self.x < WIDTH - self.size:
+        #     print("right")
+        #     self.x += 5
+        # if keys[pygame.K_UP] and self.y > 0:
+        #     print("up")
+        #     self.y -= 5
+        # if keys[pygame.K_DOWN] and self.y < HEIGHT - self.size:
+        #     print("down")
+        #     self.y += 5
 
     def draw(self):
         pygame.draw.rect(screen, BLUE, (self.x, self.y, self.size, self.size))
@@ -185,7 +169,7 @@ class Game:
         # event = pygame.event.get()
         # keys = pygame.key.get_pressed()
         # print(keys)
-        # self.player.move(keys)
+        self.player.move(keys)
 
         self.ball.check_collision(self.player)
         self.ball.move()
@@ -257,14 +241,13 @@ for episode in range(num_episodes):
         else:
             keys = {pygame.K_UP: False, pygame.K_DOWN: False, pygame.K_LEFT: False, pygame.K_RIGHT: False}
 
-        game.player.move(keys)
+        # game.player.move(keys)
         # Update the game state
         game.update_game()
 
         # Get the new game state and reward
         next_state = [game.player.x, game.player.y, game.ball.x, game.ball.y, game.ball.speed_x, game.ball.speed_y]
         reward = 0
-        print(reward, game.score)
         if game.score >= 1:
             # The player has scored at least 3 goals, end the episode
             break
@@ -278,3 +261,4 @@ for episode in range(num_episodes):
 
 # Run the game
 game.run()
+print(game.score)
